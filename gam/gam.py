@@ -57,10 +57,10 @@ class GAM(torch.optim.Optimizer):
                     e_w = p.grad * scale.to(p)
                     if self.adaptive:
                         e_w *= torch.pow(p, 2)
-                    p.add_(e_w)
+                    p.add_(e_w)  # line7
                     self.state[p]['e_w_0'] = e_w
 
-        elif perturb_idx == 1:
+        elif perturb_idx == 1:  # 增强版算法-计算准梯度
             for group in self.param_groups:
                 for p in group["params"]:
                     if p.grad is None:
@@ -136,7 +136,7 @@ class GAM(torch.optim.Optimizer):
 
     @torch.no_grad()
     def _grad_norm(self, weight_adaptive: bool = False, by: str = 'grad'):
-        norm = 0.0
+        norm = 0.0  # 梯度l2 norm
         for group in self.param_groups:
             for p in group['params']:
                 if p.grad is None: continue
@@ -182,7 +182,7 @@ class GAM(torch.optim.Optimizer):
     def set_closure(self, loss_fn, inputs, targets, **kwargs):
         # create self.forward_backward_func, which is a function such that
         # self.forward_backward_func() automatically performs forward and backward passes.
-
+        # 普通一阶梯度
         def get_grad():
             self.zero_grad()
             with torch.enable_grad():
@@ -202,10 +202,10 @@ class GAM(torch.optim.Optimizer):
             get_grad = self.forward_backward_func
 
         with self.maybe_no_sync():
-            # get gradient
+            # get gradient line 5
             outputs, loss_value = get_grad()
 
-            # perturb weights
+            # perturb weights line 6-7
             self.perturb_weights(perturb_idx=0)
 
             # disable running stats for second pass,
@@ -213,9 +213,9 @@ class GAM(torch.optim.Optimizer):
             # model 1
             get_grad()
             # grad 1
-
+            # 减去第一次扰动权重
             self.unperturb(perturb_key="e_w_0")
-            # model 0
+            # model 0 上升第二次扰动梯度
             self.grad_norm_ascent()
             # model 2
             get_grad()
